@@ -11,6 +11,7 @@
 
 use crate::logger::LdkNodeLogger;
 use crate::payment::SendingParameters;
+use crate::prober::ScoringParameters;
 
 use lightning::ln::msgs::SocketAddress;
 use lightning::routing::gossip::NodeAlias;
@@ -159,6 +160,9 @@ pub struct Config {
 	/// **Note:** If unset, default parameters will be used, and you will be able to override the
 	/// parameters on a per-payment basis in the corresponding method calls.
 	pub sending_parameters: Option<SendingParameters>,
+
+	/// The parameters used to configure the [`ProbabilisticScorer`] used by the node.
+	pub scoring_parameters: ScoringParameters,
 }
 
 impl Default for Config {
@@ -173,6 +177,7 @@ impl Default for Config {
 			anchor_channels_config: Some(AnchorChannelsConfig::default()),
 			sending_parameters: None,
 			node_alias: None,
+			scoring_parameters: ScoringParameters::default(),
 		}
 	}
 }
