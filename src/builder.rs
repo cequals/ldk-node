@@ -333,7 +333,9 @@ impl NodeBuilder {
 	}
 
 	/// Sets the parameters for the scoring algorithm.
-	pub fn set_scoring_params(&mut self, scoring_params: ProbabilisticScoringParameters) -> &mut Self {
+	pub fn set_scoring_params(
+		&mut self, scoring_params: ProbabilisticScoringParameters,
+	) -> &mut Self {
 		self.config.scoring_parameters = scoring_params;
 		self
 	}
@@ -1236,12 +1238,10 @@ fn setup_logger(config: &Config) -> Result<Arc<LdkNodeLogger>, BuildError> {
 		LoggingConfig::Filesystem { ref log_dir, log_level } => {
 			let filesystem_log_writer = FilesystemLogWriter::new(log_dir.clone())
 				.map_err(|_| BuildError::LoggerSetupFailed)?;
-			Ok(Arc::new(
-				LdkNodeLogger::new(
-					log_level,
-					Box::new(move |record| filesystem_log_writer.write(&default_format(record))),
-				),
-			))
+			Ok(Arc::new(LdkNodeLogger::new(
+				log_level,
+				Box::new(move |record| filesystem_log_writer.write(&default_format(record))),
+			)))
 		},
 	}
 }

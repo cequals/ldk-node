@@ -161,7 +161,7 @@ pub struct Config {
 	/// parameters on a per-payment basis in the corresponding method calls.
 	pub sending_parameters: Option<SendingParameters>,
 
-	/// The parameters used to configure the [`lightning::routing::scoring::ProbabilisticScorer`] 
+	/// The parameters used to configure the [`lightning::routing::scoring::ProbabilisticScorer`]
 	/// used by the node.
 	pub scoring_parameters: ProbabilisticScoringParameters,
 }
