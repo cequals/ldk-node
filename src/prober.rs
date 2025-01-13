@@ -25,12 +25,25 @@ use lightning::{
 	log_error,
 	routing::{
 		router::{Path, PaymentParameters, Route, RouteParameters, Router as _},
+		scoring::{
 			ProbabilisticScorer, ProbabilisticScoringDecayParameters,
+			ProbabilisticScoringFeeParameters, ScoreUpdate as _,
+		},
 	},
 	util::{
 		logger::Logger as _,
 		ser::{ReadableArgs as _, Writeable},
 	},
+};
+
+/// The parameters used to configure the [`ProbabilisticScorer`] used by the node.
+#[derive(Debug, Clone, Default)]
+pub struct ProbabilisticScoringParameters {
+	/// The fee parameters used by the router to compute path penalties.
+	pub fee_params: ProbabilisticScoringFeeParameters,
+	/// The decay parameters used by the scorer to reduce certainty of liquidity information.
+	pub decay_params: ProbabilisticScoringDecayParameters,
+}
 
 /// The Prober can be used to send probes to a destination node outside of regular payment flows.
 pub struct Prober {
@@ -87,6 +100,14 @@ impl Prober {
 		} else {
 			scorer.probe_successful(path, duration_since_epoch);
 		}
+	}
+
+	/// Updates the scoring decay parameters while retaining channel liquidity information..
+	pub fn update_scoring_decay_params(
+		&self, decay_params: ProbabilisticScoringDecayParameters,
+	) -> Result<(), std::io::Error> {
+		let scorer_bytes = self.export_scorer()?;
+		self.import_scorer(scorer_bytes, decay_params)
 	}
 
 	/// Export the scorer

@@ -24,6 +24,7 @@ use crate::logger::{
 use crate::message_handler::NodeCustomMessageHandler;
 use crate::payment::store::PaymentStore;
 use crate::peer_store::PeerStore;
+use crate::prober::ProbabilisticScoringParameters;
 use crate::tx_broadcaster::TransactionBroadcaster;
 use crate::types::{
 	ChainMonitor, ChannelManager, DynStore, GossipSync, Graph, KeysManager, MessageRouter,
@@ -329,6 +330,12 @@ impl NodeBuilder {
 
 		self.config.node_alias = Some(node_alias);
 		Ok(self)
+	}
+
+	/// Sets the parameters for the scoring algorithm.
+	pub fn set_scoring_params(&mut self, scoring_params: ProbabilisticScoringParameters) -> &mut Self {
+		self.config.scoring_parameters = scoring_params;
+		self
 	}
 
 	/// Builds a [`Node`] instance with a [`SqliteStore`] backend and according to the options
@@ -877,9 +884,9 @@ fn build_with_store_internal(
 		Ok(scorer) => Arc::new(Mutex::new(scorer)),
 		Err(e) => {
 			if e.kind() == std::io::ErrorKind::NotFound {
-				let params = ProbabilisticScoringDecayParameters::default();
+				let decay_params = config.scoring_parameters.decay_params;
 				Arc::new(Mutex::new(ProbabilisticScorer::new(
-					params,
+					decay_params,
 					Arc::clone(&network_graph),
 					Arc::clone(&logger),
 				)))
@@ -889,7 +896,7 @@ fn build_with_store_internal(
 		},
 	};
 
-	let scoring_fee_params = ProbabilisticScoringFeeParameters::default();
+	let scoring_fee_params = config.scoring_parameters.fee_params.clone();
 	let router = Arc::new(DefaultRouter::new(
 		Arc::clone(&network_graph),
 		Arc::clone(&logger),
@@ -1233,8 +1240,7 @@ fn setup_logger(config: &Config) -> Result<Arc<LdkNodeLogger>, BuildError> {
 				LdkNodeLogger::new(
 					log_level,
 					Box::new(move |record| filesystem_log_writer.write(&default_format(record))),
-				)
-				.map_err(|_| BuildError::LoggerSetupFailed)?,
+				),
 			))
 		},
 	}
