@@ -16,24 +16,28 @@ use std::{
 use crate::{
 	error::Error,
 	logger::LdkNodeLogger,
-	types::{ChannelManager, Router, Scorer},
+	types::{ChannelManager, Graph, Router, Scorer},
 };
 use bitcoin::secp256k1::PublicKey;
 use lightning::{
+	io::Cursor,
 	ln::{channel_state::ChannelDetails, channelmanager::PaymentId, PaymentHash},
 	log_error,
 	routing::{
 		router::{Path, PaymentParameters, Route, RouteParameters, Router as _},
-		scoring::ScoreUpdate as _,
+			ProbabilisticScorer, ProbabilisticScoringDecayParameters,
 	},
-	util::logger::Logger as _,
-};
+	util::{
+		logger::Logger as _,
+		ser::{ReadableArgs as _, Writeable},
+	},
 
 /// The Prober can be used to send probes to a destination node outside of regular payment flows.
 pub struct Prober {
 	channel_manager: Arc<ChannelManager>,
 	router: Arc<Router>,
 	scorer: Arc<Mutex<Scorer>>,
+	network_graph: Arc<Graph>,
 	logger: Arc<LdkNodeLogger>,
 	node_id: PublicKey,
 }
@@ -41,9 +45,9 @@ pub struct Prober {
 impl Prober {
 	pub(crate) fn new(
 		channel_manager: Arc<ChannelManager>, router: Arc<Router>, scorer: Arc<Mutex<Scorer>>,
-		logger: Arc<LdkNodeLogger>, node_id: PublicKey,
+		network_graph: Arc<Graph>, logger: Arc<LdkNodeLogger>, node_id: PublicKey,
 	) -> Self {
-		Self { channel_manager, router, scorer, logger, node_id }
+		Self { channel_manager, router, scorer, network_graph, logger, node_id }
 	}
 
 	/// Find a route from the node to a given destination on the network.
@@ -80,5 +84,39 @@ impl Prober {
 		} else {
 			scorer.probe_successful(path, duration_since_epoch);
 		}
+	}
+
+	/// Export the scorer
+	pub fn export_scorer(&self) -> Result<Vec<u8>, std::io::Error> {
+		let scorer = self.scorer.lock().expect("Lock poisoned");
+		let mut writer = Vec::new();
+		scorer.write(&mut writer).map_err(|e| {
+			log_error!(self.logger, "Failed to serialize scorer: {}", e);
+			std::io::Error::new(std::io::ErrorKind::InvalidData, "Failed to serialize Scorer")
+		})?;
+		Ok(writer)
+	}
+
+	/// Import a new scorer
+	pub fn import_scorer(
+		&self, scorer_bytes: Vec<u8>, decay_params: ProbabilisticScoringDecayParameters,
+	) -> Result<(), std::io::Error> {
+		let mut reader = Cursor::new(scorer_bytes);
+		let args = (decay_params, self.network_graph.clone(), self.logger.clone());
+		let new_scorer = ProbabilisticScorer::read(&mut reader, args).map_err(|e| {
+			log_error!(self.logger, "Failed to deserialize scorer: {}", e);
+			std::io::Error::new(std::io::ErrorKind::InvalidData, "Failed to deserialize Scorer")
+		})?;
+		let mut scorer = self.scorer.lock().expect("Lock poisoned");
+		*scorer = new_scorer;
+		Ok(())
+	}
+
+	/// Reset scorer liquidity information
+	pub fn reset_scorer(&self, decay_params: ProbabilisticScoringDecayParameters) {
+		let new_scorer =
+			ProbabilisticScorer::new(decay_params, self.network_graph.clone(), self.logger.clone());
+		let mut scorer = self.scorer.lock().expect("Lock poisoned");
+		*scorer = new_scorer;
 	}
 }
