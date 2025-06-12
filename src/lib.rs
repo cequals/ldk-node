@@ -926,7 +926,7 @@ impl Node {
 			Arc::clone(&self.chain_monitor),
 			Arc::clone(&self.router),
 			Arc::clone(&self.scorer),
-			Arc::clone(&self.network_graph), 
+			Arc::clone(&self.network_graph),
 			Arc::clone(&self.logger),
 			self.node_id(),
 		)
