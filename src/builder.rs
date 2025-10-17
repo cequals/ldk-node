@@ -26,12 +26,10 @@ use lightning::ln::msgs::{RoutingMessageHandler, SocketAddress};
 use lightning::ln::peer_handler::{IgnoringMessageHandler, MessageHandler};
 use lightning::routing::gossip::NodeAlias;
 use lightning::routing::router::DefaultRouter;
-use lightning::routing::scoring::{
-	ProbabilisticScorer, ProbabilisticScoringDecayParameters, ProbabilisticScoringFeeParameters,
-};
+use lightning::routing::scoring::ProbabilisticScorer;
 use lightning::sign::{EntropySource, NodeSigner};
 use lightning::util::persist::{
-	read_channel_monitors, KVStoreSync, CHANNEL_MANAGER_PERSISTENCE_KEY,
+	KVStoreSync, MonitorUpdatingPersister, CHANNEL_MANAGER_PERSISTENCE_KEY,
 	CHANNEL_MANAGER_PERSISTENCE_PRIMARY_NAMESPACE, CHANNEL_MANAGER_PERSISTENCE_SECONDARY_NAMESPACE,
 };
 use lightning::util::ser::ReadableArgs;
@@ -76,6 +74,7 @@ use crate::{Node, NodeMetrics};
 const VSS_HARDENED_CHILD_INDEX: u32 = 877;
 const VSS_LNURL_AUTH_HARDENED_CHILD_INDEX: u32 = 138;
 const LSPS_HARDENED_CHILD_INDEX: u32 = 577;
+const MAXIMUM_PENDING_CHANNEL_UPDATES: u64 = 100;
 
 #[derive(Debug, Clone)]
 enum ChainDataSourceConfig {
@@ -1327,13 +1326,37 @@ fn build_with_store_internal(
 
 	let peer_storage_key = keys_manager.get_peer_storage_key();
 
+	// Initialize the MonitorUpdatingPersister
+	let persister = Arc::new(MonitorUpdatingPersister::new(
+		Arc::clone(&kv_store),
+		Arc::clone(&logger),
+		MAXIMUM_PENDING_CHANNEL_UPDATES,
+		Arc::clone(&keys_manager),
+		Arc::clone(&keys_manager),
+		Arc::clone(&tx_broadcaster),
+		Arc::clone(&fee_estimator),
+	));
+
+	// Read ChannelMonitor state from store using the persister
+	let channel_monitors = match persister.read_all_channel_monitors_with_updates() {
+		Ok(monitors) => monitors,
+		Err(e) => {
+			if e.kind() == lightning::io::ErrorKind::NotFound {
+				Vec::new()
+			} else {
+				log_error!(logger, "Failed to read channel monitors: {}", e.to_string());
+				return Err(BuildError::ReadFailed);
+			}
+		},
+	};
+
 	// Initialize the ChainMonitor
 	let chain_monitor: Arc<ChainMonitor> = Arc::new(chainmonitor::ChainMonitor::new(
 		Some(Arc::clone(&chain_source)),
 		Arc::clone(&tx_broadcaster),
 		Arc::clone(&logger),
 		Arc::clone(&fee_estimator),
-		Arc::clone(&kv_store),
+		persister,
 		Arc::clone(&keys_manager),
 		peer_storage_key,
 	));
@@ -1379,23 +1402,6 @@ fn build_with_store_internal(
 		Arc::clone(&scorer),
 		scoring_fee_params,
 	));
-
-	// Read ChannelMonitor state from store
-	let channel_monitors = match read_channel_monitors(
-		Arc::clone(&kv_store),
-		Arc::clone(&keys_manager),
-		Arc::clone(&keys_manager),
-	) {
-		Ok(monitors) => monitors,
-		Err(e) => {
-			if e.kind() == lightning::io::ErrorKind::NotFound {
-				Vec::new()
-			} else {
-				log_error!(logger, "Failed to read channel monitors: {}", e.to_string());
-				return Err(BuildError::ReadFailed);
-			}
-		},
-	};
 
 	let mut user_config = default_user_config(&config);
 
