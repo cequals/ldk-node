@@ -55,14 +55,16 @@ pub(crate) type ChainMonitor = chainmonitor::ChainMonitor<
 	Arc<Broadcaster>,
 	Arc<OnchainFeeEstimator>,
 	Arc<Logger>,
-	Arc<MonitorUpdatingPersister<
-		Arc<DynStore>,
-		Arc<Logger>,
-		Arc<KeysManager>,
-		Arc<KeysManager>,
-		Arc<Broadcaster>,
-		Arc<OnchainFeeEstimator>,
-	>>,
+	Arc<
+		MonitorUpdatingPersister<
+			Arc<DynStore>,
+			Arc<Logger>,
+			Arc<KeysManager>,
+			Arc<KeysManager>,
+			Arc<Broadcaster>,
+			Arc<OnchainFeeEstimator>,
+		>,
+	>,
 	Arc<KeysManager>,
 >;
 

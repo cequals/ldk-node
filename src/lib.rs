@@ -105,6 +105,7 @@ use std::net::ToSocketAddrs;
 use std::sync::{Arc, Mutex, RwLock};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
+use crate::prober::Prober;
 pub use balance::{BalanceDetails, LightningBalance, PendingSweepBalance};
 use bitcoin::secp256k1::PublicKey;
 #[cfg(feature = "uniffi")]
@@ -155,7 +156,6 @@ use types::{
 pub use types::{
 	ChannelDetails, CustomTlvRecord, DynStore, PeerDetails, SyncAndAsyncKVStore, UserChannelId,
 };
-use crate::prober::Prober;
 
 pub use {
 	bip39, bitcoin, lightning, lightning_invoice, lightning_liquidity, lightning_types, tokio,
