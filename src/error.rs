@@ -200,12 +200,12 @@ impl fmt::Display for Error {
 			Self::LiquidityFeeTooHigh => {
 				write!(f, "The given operation failed due to the LSP's required opening fee being too high.")
 			},
+			Self::RouteNotFound => {
+				write!(f, "The router failed to find a route to the given destination.")
+			},
 			Self::InvalidBlindedPaths => write!(f, "The given blinded paths are invalid."),
 			Self::AsyncPaymentServicesDisabled => {
 				write!(f, "Asynchronous payment services are disabled.")
-			},
-			Self::RouteNotFound => {
-				write!(f, "The router failed to find a route to the given destination.")
 			},
 		}
 	}

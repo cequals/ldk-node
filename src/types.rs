@@ -49,20 +49,22 @@ where
 /// A type alias for [`SyncAndAsyncKVStore`] with `Sync`/`Send` markers;
 pub type DynStore = dyn SyncAndAsyncKVStore + Sync + Send;
 
+pub type Persister = MonitorUpdatingPersister<
+	Arc<DynStore>,
+	Arc<Logger>,
+	Arc<KeysManager>,
+	Arc<KeysManager>,
+	Arc<Broadcaster>,
+	Arc<OnchainFeeEstimator>,
+>;
+
 pub(crate) type ChainMonitor = chainmonitor::ChainMonitor<
 	InMemorySigner,
 	Arc<ChainSource>,
 	Arc<Broadcaster>,
 	Arc<OnchainFeeEstimator>,
 	Arc<Logger>,
-	Arc<MonitorUpdatingPersister<
-		Arc<DynStore>,
-		Arc<Logger>,
-		Arc<KeysManager>,
-		Arc<KeysManager>,
-		Arc<Broadcaster>,
-		Arc<OnchainFeeEstimator>,
-	>>,
+	Arc<Persister>,
 	Arc<KeysManager>,
 >;
 

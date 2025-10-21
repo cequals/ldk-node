@@ -415,7 +415,7 @@ impl BitcoindChainSource {
 
 	pub(super) async fn update_fee_rate_estimates(&self) -> Result<(), Error> {
 		macro_rules! get_fee_rate_update {
-			($estimation_fut: expr) => {{
+			($estimation_fut:expr) => {{
 				let update_res = tokio::time::timeout(
 					Duration::from_secs(FEE_RATE_CACHE_UPDATE_TIMEOUT_SECS),
 					$estimation_fut,
